@@ -27,13 +27,14 @@ html,
 body,
 #root {
   margin: 0;
-  min-height: 100%;
+  height: 100%;
   background: var(--bg);
   color: var(--text);
 }
 
 body {
   min-height: 100dvh;
+  overflow: hidden;
 }
 
 button,
@@ -44,12 +45,14 @@ input {
 
 .shell {
   width: min(390px, 100%);
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
   margin: 0 auto;
   background: var(--bg-2);
   display: flex;
   flex-direction: column;
   padding-top: env(safe-area-inset-top);
+  overflow: hidden;
 }
 
 .app-bar {
@@ -85,13 +88,13 @@ input {
 
 .main {
   flex: 1;
+  min-height: 0;
   overflow: auto;
-  padding: 0 16px 96px;
+  padding: 0 16px 16px;
 }
 
 .tab-bar {
-  position: sticky;
-  bottom: 0;
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 6px;
