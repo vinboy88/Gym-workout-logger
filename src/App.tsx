@@ -1,0 +1,80 @@
+import { useState } from 'react';
+import { LogScreen } from './LogScreen';
+import { ProgramScreen } from './ProgramScreen';
+import { SettingsScreen } from './SettingsScreen';
+import { useGym } from './store';
+
+type Tab = 'log' | 'program' | 'settings';
+
+export function App() {
+  const { ready, error, state } = useGym();
+
+  if (!ready) {
+    return (
+      <div className="shell">
+        <p className="muted center">Loading…</p>
+      </div>
+    );
+  }
+
+  if (error || !state) {
+    return (
+      <div className="shell">
+        <p className="form-error center">{error ?? 'Could not open gym data.'}</p>
+      </div>
+    );
+  }
+
+  return <LoadedApp />;
+}
+
+function LoadedApp() {
+  const { state } = useGym();
+  const [tab, setTab] = useState<Tab>(state?.program.locked ? 'log' : 'program');
+
+  if (!state) return null;
+
+  return (
+    <div className="shell">
+      <header className="app-bar">
+        <div>
+          <p className="brand">Gym Log</p>
+          <p className="heaviest">{state.program.title}</p>
+        </div>
+        <span className={state.program.locked ? 'lock-pill on' : 'lock-pill'}>
+          {state.program.locked ? 'Locked' : 'Unlocked'}
+        </span>
+      </header>
+
+      <main className="main">
+        {tab === 'log' && <LogScreen onNeedProgram={() => setTab('program')} />}
+        {tab === 'program' && <ProgramScreen />}
+        {tab === 'settings' && <SettingsScreen />}
+      </main>
+
+      <nav className="tab-bar" aria-label="Primary">
+        <button
+          type="button"
+          className={tab === 'log' ? 'tab on' : 'tab'}
+          onClick={() => setTab('log')}
+        >
+          Log
+        </button>
+        <button
+          type="button"
+          className={tab === 'program' ? 'tab on' : 'tab'}
+          onClick={() => setTab('program')}
+        >
+          Program
+        </button>
+        <button
+          type="button"
+          className={tab === 'settings' ? 'tab on' : 'tab'}
+          onClick={() => setTab('settings')}
+        >
+          Settings
+        </button>
+      </nav>
+    </div>
+  );
+}

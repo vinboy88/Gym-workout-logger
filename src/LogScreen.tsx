@@ -1,0 +1,213 @@
+import { useMemo, useState, type FormEvent } from 'react';
+import { formatSet } from './ids';
+import { exercisesFor, sortedCategories, useGym } from './store';
+import type { ProgramExercise, SetEntry } from './types';
+
+function parseWeight(raw: string): number | null {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) return null;
+  return value;
+}
+
+function parseReps(raw: string): number | null {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) return null;
+  return value;
+}
+
+function ExerciseCard({
+  exercise,
+  sessionSets,
+  locked,
+  onLog,
+  onRemoveSet,
+}: {
+  exercise: ProgramExercise;
+  sessionSets: SetEntry[];
+  locked: boolean;
+  onLog: (weight: number, reps: number) => Promise<void>;
+  onRemoveSet: (id: string) => Promise<void>;
+}) {
+  const { heaviest } = useGym();
+  const [weight, setWeight] = useState('');
+  const [reps, setReps] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const best = heaviest.get(exercise.id);
+  const sets = sessionSets.filter((set) => set.programExerciseId === exercise.id);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    const w = parseWeight(weight);
+    const r = parseReps(reps);
+    if (w === null) {
+      setError('Weight');
+      return;
+    }
+    if (r === null) {
+      setError('Reps');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onLog(w, r);
+      setWeight('');
+      setReps('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not log');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <article className="card exercise">
+      <div className="exercise-head">
+        <h3>{exercise.name}</h3>
+        <p className="heaviest">
+          {best ? `heaviest ${formatSet(best.weight, best.reps)}` : 'heaviest —'}
+        </p>
+      </div>
+      {sets.length > 0 && (
+        <ol className="set-pills">
+          {sets.map((set, index) => (
+            <li key={set.id}>
+              <button
+                type="button"
+                className="pill"
+                onClick={() => void onRemoveSet(set.id)}
+                aria-label={`Remove set ${index + 1}`}
+              >
+                {formatSet(set.weight, set.reps)}
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+      <form className="log-row" onSubmit={(event) => void submit(event)}>
+        <label>
+          <span>wt</span>
+          <input
+            inputMode="decimal"
+            value={weight}
+            onChange={(event) => setWeight(event.target.value)}
+            placeholder="0"
+            disabled={!locked || busy}
+          />
+        </label>
+        <label>
+          <span>reps</span>
+          <input
+            inputMode="numeric"
+            value={reps}
+            onChange={(event) => setReps(event.target.value)}
+            placeholder="0"
+            disabled={!locked || busy}
+          />
+        </label>
+        <button className="btn primary" type="submit" disabled={!locked || busy}>
+          Log
+        </button>
+      </form>
+      {error && <p className="form-error">{error}</p>}
+    </article>
+  );
+}
+
+export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
+  const { state, openSession, startSession, endSession, logSet, removeSet } = useGym();
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const categories = state ? sortedCategories(state) : [];
+  const activeId = categoryId && categories.some((cat) => cat.id === categoryId)
+    ? categoryId
+    : categories[0]?.id ?? null;
+  const exercises = state && activeId ? exercisesFor(state, activeId) : [];
+  const sessionSets = useMemo(() => {
+    if (!state || !openSession) return [];
+    return state.setEntries
+      .filter((set) => set.sessionId === openSession.id)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt));
+  }, [openSession, state]);
+
+  if (!state) return null;
+
+  const locked = state.program.locked;
+
+  async function onStart() {
+    setActionError(null);
+    try {
+      await startSession();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not start');
+    }
+  }
+
+  return (
+    <section className="screen">
+      <header className="screen-head">
+        <div>
+          <p className="eyebrow">Today</p>
+          <h2>Log</h2>
+        </div>
+        {locked && openSession ? (
+          <button className="btn ghost" type="button" onClick={() => void endSession()}>
+            End
+          </button>
+        ) : locked ? (
+          <button className="btn ghost" type="button" onClick={() => void onStart()}>
+            Start
+          </button>
+        ) : null}
+      </header>
+
+      {!locked && (
+        <div className="banner">
+          <p>Lock your weekly program before logging sets.</p>
+          <button className="btn primary" type="button" onClick={onNeedProgram}>
+            Open program
+          </button>
+        </div>
+      )}
+
+      {locked && (
+        <p className="session-line">
+          {openSession ? 'Workout open — first set also starts one.' : 'Log a set to start a workout.'}
+        </p>
+      )}
+
+      {actionError && <p className="form-error">{actionError}</p>}
+
+      <div className="chips" role="tablist" aria-label="Day">
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            type="button"
+            role="tab"
+            aria-selected={cat.id === activeId}
+            className={cat.id === activeId ? 'chip on' : 'chip'}
+            onClick={() => setCategoryId(cat.id)}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="stack">
+        {exercises.map((exercise) => (
+          <ExerciseCard
+            key={exercise.id}
+            exercise={exercise}
+            sessionSets={sessionSets}
+            locked={locked}
+            onLog={(weight, reps) => logSet(exercise.id, weight, reps)}
+            onRemoveSet={removeSet}
+          />
+        ))}
+        {exercises.length === 0 && <p className="muted">No exercises on this day.</p>}
+      </div>
+    </section>
+  );
+}
