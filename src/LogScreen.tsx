@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { formatDateKey, todayLocalDateKey } from './dates';
+import { formatDateKey, isDateKey, todayLocalDateKey } from './dates';
 import { formatSet } from './ids';
 import { exercisesFor, sortedCategories, useGym } from './store';
 import type { ProgramExercise, SetEntry } from './types';
@@ -141,7 +141,7 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
   const selectedDate = openSession?.date ?? draftDate;
 
   async function onDateChange(next: string) {
-    if (!next) return;
+    if (!isDateKey(next)) return;
     setActionError(null);
     if (openSession) {
       try {
