@@ -53,7 +53,6 @@ function ExerciseCard({
     setError(null);
     try {
       await onLog(w, r);
-      setWeight('');
       setReps('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not log');
@@ -88,12 +87,13 @@ function ExerciseCard({
       )}
       <form className="log-row" onSubmit={(event) => void submit(event)}>
         <label>
-          <span>wt</span>
+          <span>kg</span>
           <input
             inputMode="decimal"
             value={weight}
             onChange={(event) => setWeight(event.target.value)}
             placeholder="0"
+            aria-label="Weight in kilograms"
             disabled={!locked || busy}
           />
         </label>
