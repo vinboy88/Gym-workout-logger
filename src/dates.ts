@@ -63,6 +63,13 @@ export function formatDateKeyLong(dateKey: string): string {
   });
 }
 
+/** Compact calendar label, e.g. 15 Sep. */
+export function formatDateKeyCompact(dateKey: string): string {
+  const date = parseDateKey(dateKey);
+  if (Number.isNaN(date.getTime())) return dateKey;
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
 export function withCalendarDate<T extends { startedAt: string; date?: string }>(
   session: T,
 ): T & { date: string } {

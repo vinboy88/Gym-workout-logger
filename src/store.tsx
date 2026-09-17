@@ -8,11 +8,18 @@ import {
   type ReactNode,
 } from 'react';
 import { parseBackup, serializeBackup } from './backup';
+import {
+  isBackupDue,
+  loggedSessionCount,
+  resetBackupSchedule,
+  snoozeBackupSchedule,
+} from './backupPrefs';
 import { isDateKey, todayLocalDateKey } from './dates';
 import { loadState, saveState } from './db';
 import { heaviestMap } from './heaviest';
 import { createId, nowIso } from './ids';
 import type {
+  BackupPrefs,
   Category,
   GymState,
   HeaviestSet,
@@ -43,8 +50,14 @@ type GymStore = {
   endSession: () => Promise<void>;
   logSet: (programExerciseId: string, weight: number, reps: number, date?: string) => Promise<void>;
   removeSet: (id: string) => Promise<void>;
-  exportBackup: () => string;
+  exportBackup: () => Promise<string>;
   importBackup: (raw: unknown) => Promise<void>;
+  backupDue: boolean;
+  dismissBackupNudge: () => Promise<void>;
+  setBackupPrefs: (
+    patch: Partial<Pick<BackupPrefs, 'remindEnabled' | 'everyDays' | 'afterSessions'>>,
+  ) => Promise<void>;
+  swapExercise: (id: string, name: string) => Promise<void>;
 };
 
 const GymContext = createContext<GymStore | null>(null);
@@ -110,6 +123,11 @@ export function GymProvider({ children }: { children: ReactNode }) {
   const heaviest = useMemo(
     () => heaviestMap(state?.setEntries ?? []),
     [state?.setEntries],
+  );
+
+  const backupDue = useMemo(
+    () => (state ? isBackupDue(state.prefs, state.setEntries) : false),
+    [state],
   );
 
   const openSession = useMemo(() => {
@@ -289,6 +307,34 @@ export function GymProvider({ children }: { children: ReactNode }) {
     [update],
   );
 
+  const swapExercise = useCallback(
+    async (id: string, name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      await update((current) => {
+        const existing = current.programExercises.find((ex) => ex.id === id && !ex.retired);
+        if (!existing) return current;
+        if (existing.name === trimmed) return current;
+        const replacement: ProgramExercise = {
+          id: createId(),
+          categoryId: existing.categoryId,
+          name: trimmed,
+          sortOrder: existing.sortOrder,
+        };
+        return bumpProgram({
+          ...current,
+          programExercises: [
+            ...current.programExercises.map((ex) =>
+              ex.id === id ? { ...ex, retired: true } : ex,
+            ),
+            replacement,
+          ],
+        });
+      });
+    },
+    [update],
+  );
+
   const moveExercise = useCallback(
     async (id: string, direction: -1 | 1) => {
       await update((current) => {
@@ -417,10 +463,16 @@ export function GymProvider({ children }: { children: ReactNode }) {
     [update],
   );
 
-  const exportBackup = useCallback(() => {
-    if (!state) throw new Error('Not ready');
-    return JSON.stringify(serializeBackup(state), null, 2);
-  }, [state]);
+  const exportBackup = useCallback(async () => {
+    const current = state;
+    if (!current) throw new Error('Not ready');
+    const next: GymState = {
+      ...current,
+      prefs: resetBackupSchedule(current.prefs, loggedSessionCount(current.setEntries)),
+    };
+    await persist(next);
+    return JSON.stringify(serializeBackup(next), null, 2);
+  }, [persist, state]);
 
   const importBackup = useCallback(
     async (raw: unknown) => {
@@ -428,6 +480,34 @@ export function GymProvider({ children }: { children: ReactNode }) {
       await persist(next);
     },
     [persist],
+  );
+
+  const dismissBackupNudge = useCallback(async () => {
+    await update((current) => ({
+      ...current,
+      prefs: snoozeBackupSchedule(current.prefs, loggedSessionCount(current.setEntries)),
+    }));
+  }, [update]);
+
+  const setBackupPrefs = useCallback(
+    async (
+      patch: Partial<Pick<BackupPrefs, 'remindEnabled' | 'everyDays' | 'afterSessions'>>,
+    ) => {
+      await update((current) => ({
+        ...current,
+        prefs: {
+          ...current.prefs,
+          ...(patch.remindEnabled !== undefined ? { remindEnabled: patch.remindEnabled } : {}),
+          ...(patch.everyDays !== undefined
+            ? { everyDays: Math.min(365, Math.max(0, Math.floor(patch.everyDays))) }
+            : {}),
+          ...(patch.afterSessions !== undefined
+            ? { afterSessions: Math.min(99, Math.max(0, Math.floor(patch.afterSessions))) }
+            : {}),
+        },
+      }));
+    },
+    [update],
   );
 
   const value = useMemo<GymStore>(
@@ -455,10 +535,16 @@ export function GymProvider({ children }: { children: ReactNode }) {
       removeSet,
       exportBackup,
       importBackup,
+      backupDue,
+      dismissBackupNudge,
+      setBackupPrefs,
+      swapExercise,
     }),
     [
       addCategory,
       addExercise,
+      backupDue,
+      dismissBackupNudge,
       endSession,
       error,
       exportBackup,
@@ -474,10 +560,12 @@ export function GymProvider({ children }: { children: ReactNode }) {
       removeSet,
       renameCategory,
       renameExercise,
+      setBackupPrefs,
       setSessionDate,
       setTitle,
       startSession,
       state,
+      swapExercise,
       unlockProgram,
       logSet,
     ],
@@ -497,5 +585,7 @@ export function sortedCategories(state: GymState): Category[] {
 }
 
 export function exercisesFor(state: GymState, categoryId: string): ProgramExercise[] {
-  return sortByOrder(state.programExercises.filter((ex) => ex.categoryId === categoryId));
+  return sortByOrder(
+    state.programExercises.filter((ex) => ex.categoryId === categoryId && !ex.retired),
+  );
 }

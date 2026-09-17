@@ -1,22 +1,44 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { backupFilename } from './backup';
+import { DEFAULT_AFTER_SESSIONS, DEFAULT_EVERY_DAYS } from './backupPrefs';
 import { useGym } from './store';
 
+function parseCount(raw: string, fallback: number, max: number): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) return fallback;
+  return Math.min(max, value);
+}
+
 export function SettingsScreen() {
-  const { exportBackup, importBackup, state } = useGym();
+  const { exportBackup, importBackup, state, setBackupPrefs } = useGym();
   const fileRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [daysDraft, setDaysDraft] = useState(String(state?.prefs.everyDays ?? DEFAULT_EVERY_DAYS));
+  const [sessionsDraft, setSessionsDraft] = useState(
+    String(state?.prefs.afterSessions ?? DEFAULT_AFTER_SESSIONS),
+  );
 
-  function onExport() {
-    const json = exportBackup();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = backupFilename();
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setStatus('Backup downloaded.');
+  useEffect(() => {
+    if (!state) return;
+    setDaysDraft(String(state.prefs.everyDays));
+    setSessionsDraft(String(state.prefs.afterSessions));
+  }, [state?.prefs.afterSessions, state?.prefs.everyDays]);
+
+  async function onExport() {
+    setStatus(null);
+    try {
+      const json = await exportBackup();
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = backupFilename();
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setStatus('Backup downloaded.');
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : 'Export failed');
+    }
   }
 
   async function onPickFile(file: File | undefined) {
@@ -41,6 +63,20 @@ export function SettingsScreen() {
     }
   }
 
+  async function saveDays() {
+    if (!state) return;
+    const next = parseCount(daysDraft, state.prefs.everyDays, 365);
+    setDaysDraft(String(next));
+    if (next !== state.prefs.everyDays) await setBackupPrefs({ everyDays: next });
+  }
+
+  async function saveSessions() {
+    if (!state) return;
+    const next = parseCount(sessionsDraft, state.prefs.afterSessions, 99);
+    setSessionsDraft(String(next));
+    if (next !== state.prefs.afterSessions) await setBackupPrefs({ afterSessions: next });
+  }
+
   return (
     <section className="screen">
       <header className="screen-head">
@@ -50,13 +86,13 @@ export function SettingsScreen() {
         </div>
       </header>
 
-      <article className="card">
+      <article className="card" id="backup-export">
         <h3>Backup</h3>
         <p className="muted">
           Full JSON of program, sessions, and sets. Stored in IndexedDB until you export.
         </p>
         <div className="btn-col">
-          <button className="btn primary" type="button" onClick={onExport}>
+          <button className="btn primary" type="button" onClick={() => void onExport()}>
             Export JSON
           </button>
           <button className="btn ghost" type="button" onClick={() => fileRef.current?.click()}>
@@ -71,6 +107,45 @@ export function SettingsScreen() {
           />
         </div>
         {status && <p className="banner-note">{status}</p>}
+      </article>
+
+      <article className="card">
+        <h3>Backup reminder</h3>
+        <p className="muted">
+          Gentle nudge to export — whichever comes first. Default is {DEFAULT_EVERY_DAYS} days or{' '}
+          {DEFAULT_AFTER_SESSIONS} sessions.
+        </p>
+        <label className="toggle-row">
+          <span>Remind me to export</span>
+          <input
+            type="checkbox"
+            checked={state?.prefs.remindEnabled ?? true}
+            onChange={(event) => void setBackupPrefs({ remindEnabled: event.target.checked })}
+          />
+        </label>
+        <div className="prefs-grid">
+          <label>
+            <span>Every N days</span>
+            <input
+              inputMode="numeric"
+              value={daysDraft}
+              onChange={(event) => setDaysDraft(event.target.value)}
+              onBlur={() => void saveDays()}
+              aria-label="Remind every N days"
+            />
+          </label>
+          <label>
+            <span>After N sessions</span>
+            <input
+              inputMode="numeric"
+              value={sessionsDraft}
+              onChange={(event) => setSessionsDraft(event.target.value)}
+              onBlur={() => void saveSessions()}
+              aria-label="Remind after N sessions"
+            />
+          </label>
+        </div>
+        <p className="heaviest">Set a field to 0 to ignore that trigger.</p>
       </article>
 
       <article className="card">

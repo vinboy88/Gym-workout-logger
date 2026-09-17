@@ -17,6 +17,8 @@ export type ProgramExercise = {
   categoryId: string;
   name: string;
   sortOrder: number;
+  /** Hidden from Program/Log after a locked swap; kept so History still has the name. */
+  retired?: boolean;
 };
 
 export type Session = {
@@ -43,6 +45,21 @@ export type HeaviestSet = {
   reps: number;
 };
 
+export type LastSessionGlance = {
+  weight: number;
+  reps: number;
+  date: string;
+};
+
+export type BackupPrefs = {
+  remindEnabled: boolean;
+  everyDays: number;
+  afterSessions: number;
+  lastExportedAt: string | null;
+  lastResetAt: string;
+  sessionCountAtReset: number;
+};
+
 export type BackupPayload = {
   version: 1;
   exportedAt: string;
@@ -51,6 +68,7 @@ export type BackupPayload = {
   programExercises: ProgramExercise[];
   sessions: Session[];
   setEntries: SetEntry[];
+  prefs: BackupPrefs;
 };
 
 export type GymState = {
@@ -59,4 +77,5 @@ export type GymState = {
   programExercises: ProgramExercise[];
   sessions: Session[];
   setEntries: SetEntry[];
+  prefs: BackupPrefs;
 };

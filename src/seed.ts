@@ -1,3 +1,4 @@
+import { defaultBackupPrefs } from './backupPrefs';
 import { createId, nowIso } from './ids';
 import type { Category, GymState, Program, ProgramExercise } from './types';
 
@@ -60,5 +61,6 @@ export function seedGymState(): GymState {
     programExercises: [...leg.exercises, ...upper.exercises, ...push.exercises],
     sessions: [],
     setEntries: [],
+    prefs: defaultBackupPrefs(0),
   };
 }

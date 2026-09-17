@@ -1,8 +1,9 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { formatDateKey, isDateKey, todayLocalDateKey } from './dates';
+import { formatDateKey, formatDateKeyCompact, isDateKey, todayLocalDateKey } from './dates';
 import { formatSet } from './ids';
+import { lastSessionTopSet } from './lastSession';
 import { exercisesFor, sortedCategories, useGym } from './store';
-import type { ProgramExercise, SetEntry } from './types';
+import type { LastSessionGlance, ProgramExercise, SetEntry } from './types';
 
 function parseWeight(raw: string): number | null {
   const value = Number(raw);
@@ -19,12 +20,14 @@ function parseReps(raw: string): number | null {
 function ExerciseCard({
   exercise,
   sessionSets,
+  last,
   locked,
   onLog,
   onRemoveSet,
 }: {
   exercise: ProgramExercise;
   sessionSets: SetEntry[];
+  last: LastSessionGlance | null;
   locked: boolean;
   onLog: (weight: number, reps: number) => Promise<void>;
   onRemoveSet: (id: string) => Promise<void>;
@@ -68,6 +71,11 @@ function ExerciseCard({
         <p className="heaviest">
           {best ? `heaviest ${formatSet(best.weight, best.reps)}` : 'heaviest —'}
         </p>
+        {last && (
+          <p className="heaviest last-glance">
+            last: {formatSet(last.weight, last.reps)} ({formatDateKeyCompact(last.date)})
+          </p>
+        )}
       </div>
       {sets.length > 0 && (
         <ol className="set-pills">
@@ -134,6 +142,21 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
       .filter((set) => set.sessionId === openSession.id)
       .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt));
   }, [openSession, state]);
+  const lastByExercise = useMemo(() => {
+    const map = new Map<string, LastSessionGlance>();
+    if (!state) return map;
+    for (const exercise of state.programExercises) {
+      if (exercise.retired) continue;
+      const glance = lastSessionTopSet(
+        exercise.id,
+        state.sessions,
+        state.setEntries,
+        openSession?.id,
+      );
+      if (glance) map.set(exercise.id, glance);
+    }
+    return map;
+  }, [openSession?.id, state]);
 
   if (!state) return null;
 
@@ -242,6 +265,7 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
             key={exercise.id}
             exercise={exercise}
             sessionSets={sessionSets}
+            last={lastByExercise.get(exercise.id) ?? null}
             locked={locked}
             onLog={(weight, reps) => logSet(exercise.id, weight, reps, selectedDate)}
             onRemoveSet={removeSet}

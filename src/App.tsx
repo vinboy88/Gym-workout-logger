@@ -30,7 +30,7 @@ export function App() {
 }
 
 function LoadedApp() {
-  const { state } = useGym();
+  const { state, backupDue, dismissBackupNudge } = useGym();
   const [tab, setTab] = useState<Tab>(state?.program.locked ? 'log' : 'program');
 
   if (!state) return null;
@@ -46,6 +46,33 @@ function LoadedApp() {
           {state.program.locked ? 'Locked' : 'Unlocked'}
         </span>
       </header>
+
+      {backupDue && (
+        <div className="banner nudge">
+          <p>Time to export a backup of your gym log.</p>
+          <div className="banner-actions">
+            <button
+              className="btn primary"
+              type="button"
+              onClick={() => {
+                setTab('settings');
+                requestAnimationFrame(() => {
+                  document.getElementById('backup-export')?.scrollIntoView({ block: 'start' });
+                });
+              }}
+            >
+              Export
+            </button>
+            <button
+              className="btn ghost"
+              type="button"
+              onClick={() => void dismissBackupNudge()}
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="main">
         {tab === 'log' && <LogScreen onNeedProgram={() => setTab('program')} />}
