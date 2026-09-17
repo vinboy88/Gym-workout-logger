@@ -7,7 +7,7 @@ export function createId(): string {
 }
 
 export function formatSet(weight: number, reps: number): string {
-  return `${trimNum(weight)} × ${reps}`;
+  return `${trimNum(weight)} kg × ${reps}`;
 }
 
 export function trimNum(n: number): string {
