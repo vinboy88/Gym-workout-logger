@@ -1,14 +1,16 @@
+import { loggedSessionCount, normalizeBackupPrefs } from './backupPrefs';
 import { withCalendarDate } from './dates';
 import { seedGymState } from './seed';
-import type { GymState, Session } from './types';
+import type { BackupPrefs, GymState, ProgramExercise, Session } from './types';
 
 const DB_NAME = 'gym-workout-logger';
 /** Single kv blob — do not bump; migrate fields in migrateState instead of wiping. */
 const DB_VERSION = 1;
 const STATE_KEY = 'state';
 
-type StoredState = Omit<GymState, 'sessions'> & {
+type StoredState = Omit<GymState, 'sessions' | 'prefs'> & {
   sessions: Array<Session & { date?: string }>;
+  prefs?: BackupPrefs | unknown;
 };
 
 export function migrateState(stored: StoredState): { state: GymState; changed: boolean } {
@@ -18,7 +20,25 @@ export function migrateState(stored: StoredState): { state: GymState; changed: b
     if (next.date !== session.date) changed = true;
     return next;
   });
-  return { state: { ...stored, sessions }, changed };
+  const setEntries = Array.isArray(stored.setEntries) ? stored.setEntries : [];
+  const programExercises = Array.isArray(stored.programExercises)
+    ? stored.programExercises
+    : [];
+  const sessionCount = loggedSessionCount(setEntries);
+  const prefs = normalizeBackupPrefs(stored.prefs, sessionCount);
+  if (JSON.stringify(stored.prefs ?? null) !== JSON.stringify(prefs)) changed = true;
+
+  return {
+    state: {
+      program: stored.program,
+      categories: stored.categories,
+      programExercises: programExercises as ProgramExercise[],
+      sessions,
+      setEntries,
+      prefs,
+    },
+    changed,
+  };
 }
 
 function openDb(): Promise<IDBDatabase> {

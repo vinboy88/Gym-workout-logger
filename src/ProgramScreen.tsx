@@ -15,11 +15,14 @@ export function ProgramScreen() {
     renameExercise,
     removeExercise,
     moveExercise,
+    swapExercise,
   } = useGym();
   const [title, setTitleDraft] = useState(state?.program.title ?? '');
   const [newDay, setNewDay] = useState('');
   const [newLifts, setNewLifts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [swappingId, setSwappingId] = useState<string | null>(null);
+  const [swapName, setSwapName] = useState('');
 
   useEffect(() => {
     setTitleDraft(state?.program.title ?? '');
@@ -28,6 +31,24 @@ export function ProgramScreen() {
   if (!state) return null;
   const locked = state.program.locked;
   const categories = sortedCategories(state);
+  const exerciseNames = [
+    ...new Set(
+      state.programExercises.filter((ex) => !ex.retired).map((ex) => ex.name),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
+  async function onSwap(event: FormEvent) {
+    event.preventDefault();
+    if (!swappingId) return;
+    setMessage(null);
+    try {
+      await swapExercise(swappingId, swapName);
+      setSwappingId(null);
+      setSwapName('');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Could not swap');
+    }
+  }
 
   async function onLock() {
     setMessage(null);
@@ -44,6 +65,8 @@ export function ProgramScreen() {
       return;
     }
     setMessage(null);
+    setSwappingId(null);
+    setSwapName('');
     await unlockProgram();
   }
 
@@ -77,6 +100,12 @@ export function ProgramScreen() {
       </header>
 
       {message && <p className="banner-note">{message}</p>}
+
+      <datalist id="exercise-names">
+        {exerciseNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
 
       <form className="card title-row" onSubmit={(event) => void saveTitle(event)}>
         <label>
@@ -143,9 +172,48 @@ export function ProgramScreen() {
               </div>
               <ul className="lift-list">
                 {lifts.map((lift, liftIndex) => (
-                  <li key={lift.id}>
-                    {locked ? (
-                      <span>{lift.name}</span>
+                  <li key={lift.id} className={swappingId === lift.id ? 'swapping' : undefined}>
+                    {locked && swappingId === lift.id ? (
+                      <form className="swap-form" onSubmit={(event) => void onSwap(event)}>
+                        <input
+                          value={swapName}
+                          onChange={(event) => setSwapName(event.target.value)}
+                          placeholder="Replacement name"
+                          list="exercise-names"
+                          aria-label="Replacement exercise"
+                          autoFocus
+                        />
+                        <div className="swap-form-actions">
+                          <button className="btn primary swap-btn" type="submit">
+                            Save
+                          </button>
+                          <button
+                            className="btn ghost swap-btn"
+                            type="button"
+                            onClick={() => {
+                              setSwappingId(null);
+                              setSwapName('');
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : locked ? (
+                      <>
+                        <span>{lift.name}</span>
+                        <button
+                          type="button"
+                          className="btn ghost swap-btn"
+                          onClick={() => {
+                            setSwappingId(lift.id);
+                            setSwapName('');
+                            setMessage(null);
+                          }}
+                        >
+                          Swap
+                        </button>
+                      </>
                     ) : (
                       <input
                         className="inline-name"
