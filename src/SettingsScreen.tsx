@@ -76,8 +76,8 @@ export function SettingsScreen() {
       <article className="card">
         <h3>About</h3>
         <p className="muted">
-          Local-first gym logger. No accounts, no cloud. Add to Home Screen from Safari for the
-          PWA.
+          Local-first gym logger. No accounts, no cloud. History stays on this phone. Add to Home
+          Screen from Safari for the PWA.
         </p>
         {state && (
           <p className="heaviest">

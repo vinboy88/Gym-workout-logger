@@ -1,6 +1,6 @@
 # Gym Workout Logger
 
-Local-first iPhone gym logger. Weekly program, lock it, log weight × reps, and keep heaviest sets on this device. No accounts, no backend, no cloud sync.
+Local-first iPhone gym logger. Weekly program, lock it, log weight × reps by calendar date, review history, and keep heaviest sets on this device. No accounts, no backend, no cloud sync.
 
 Live: https://vinboy88.github.io/Gym-workout-logger/
 
@@ -26,9 +26,10 @@ Preview also uses `/Gym-workout-logger/`.
 
 1. **Program** — seed days (Leg day, Upper body, Push) and exercises. Edit while unlocked.
 2. **Lock** — program stays fixed until you explicitly unlock.
-3. **Log** — record weight + reps against the locked program.
-4. Every exercise shows **heaviest so far** (max weight, then reps) in small muted text.
-5. **Settings** — export full backup JSON; import/restore replaces local IndexedDB data.
+3. **Log** — pick the workout date (defaults to today), then record weight + reps against the locked program.
+4. Every exercise shows **heaviest so far** (max weight, then reps) in small muted text — lifetime, not per day.
+5. **History** — past sessions newest-first by date; tap one to see that day's exercises and sets.
+6. **Settings** — export full backup JSON; import/restore replaces local IndexedDB data (dates round-trip).
 
 ## PWA (iPhone Safari)
 
