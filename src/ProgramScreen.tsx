@@ -178,24 +178,26 @@ export function ProgramScreen() {
                         <input
                           value={swapName}
                           onChange={(event) => setSwapName(event.target.value)}
-                          placeholder="Replacement"
+                          placeholder="Replacement name"
                           list="exercise-names"
                           aria-label="Replacement exercise"
                           autoFocus
                         />
-                        <button className="btn primary swap-btn" type="submit">
-                          Save
-                        </button>
-                        <button
-                          className="btn ghost swap-btn"
-                          type="button"
-                          onClick={() => {
-                            setSwappingId(null);
-                            setSwapName('');
-                          }}
-                        >
-                          ×
-                        </button>
+                        <div className="swap-form-actions">
+                          <button className="btn primary swap-btn" type="submit">
+                            Save
+                          </button>
+                          <button
+                            className="btn ghost swap-btn"
+                            type="button"
+                            onClick={() => {
+                              setSwappingId(null);
+                              setSwapName('');
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </form>
                     ) : locked ? (
                       <>

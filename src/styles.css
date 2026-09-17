@@ -297,11 +297,16 @@ h3 {
 }
 
 .swap-form {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   width: 100%;
-  align-items: center;
+}
+
+.swap-form-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
 }
 
 .lift-list li.swapping {

@@ -63,11 +63,26 @@ export function formatDateKeyLong(dateKey: string): string {
   });
 }
 
+const SHORT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
 /** Compact calendar label, e.g. 15 Sep. */
 export function formatDateKeyCompact(dateKey: string): string {
   const date = parseDateKey(dateKey);
   if (Number.isNaN(date.getTime())) return dateKey;
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return `${date.getDate()} ${SHORT_MONTHS[date.getMonth()]}`;
 }
 
 export function withCalendarDate<T extends { startedAt: string; date?: string }>(
