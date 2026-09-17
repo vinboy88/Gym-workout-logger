@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { parseBackup, serializeBackup } from './backup';
+import { isDateKey, todayLocalDateKey } from './dates';
 import { loadState, saveState } from './db';
 import { heaviestMap } from './heaviest';
 import { createId, nowIso } from './ids';
@@ -37,9 +38,10 @@ type GymStore = {
   renameExercise: (id: string, name: string) => Promise<void>;
   removeExercise: (id: string) => Promise<void>;
   moveExercise: (id: string, direction: -1 | 1) => Promise<void>;
-  startSession: () => Promise<Session>;
+  startSession: (date?: string) => Promise<Session>;
+  setSessionDate: (date: string) => Promise<void>;
   endSession: () => Promise<void>;
-  logSet: (programExerciseId: string, weight: number, reps: number) => Promise<void>;
+  logSet: (programExerciseId: string, weight: number, reps: number, date?: string) => Promise<void>;
   removeSet: (id: string) => Promise<void>;
   exportBackup: () => string;
   importBackup: (raw: unknown) => Promise<void>;
@@ -314,7 +316,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
     [update],
   );
 
-  const startSession = useCallback(async () => {
+  const startSession = useCallback(async (date?: string) => {
     const current = state;
     if (!current) throw new Error('Not ready');
     if (!current.program.locked) {
@@ -327,11 +329,27 @@ export function GymProvider({ children }: { children: ReactNode }) {
     const session: Session = {
       id: createId(),
       programId: current.program.id,
+      date: isDateKey(date) ? date : todayLocalDateKey(),
       startedAt: nowIso(),
     };
     await persist({ ...current, sessions: [...current.sessions, session] });
     return session;
   }, [persist, state]);
+
+  const setSessionDate = useCallback(
+    async (date: string) => {
+      if (!isDateKey(date)) {
+        throw new Error('Pick a valid date');
+      }
+      await update((current) => ({
+        ...current,
+        sessions: current.sessions.map((session) =>
+          session.endedAt ? session : { ...session, date },
+        ),
+      }));
+    },
+    [update],
+  );
 
   const endSession = useCallback(async () => {
     await update((current) => ({
@@ -343,7 +361,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
   }, [update]);
 
   const logSet = useCallback(
-    async (programExerciseId: string, weight: number, reps: number) => {
+    async (programExerciseId: string, weight: number, reps: number, date?: string) => {
       if (!Number.isFinite(weight) || weight < 0) {
         throw new Error('Enter a weight');
       }
@@ -363,6 +381,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
         session = {
           id: createId(),
           programId: current.program.id,
+          date: isDateKey(date) ? date : todayLocalDateKey(),
           startedAt: nowIso(),
         };
         sessions.push(session);
@@ -430,6 +449,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
       removeExercise,
       moveExercise,
       startSession,
+      setSessionDate,
       endSession,
       logSet,
       removeSet,
@@ -454,6 +474,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
       removeSet,
       renameCategory,
       renameExercise,
+      setSessionDate,
       setTitle,
       startSession,
       state,

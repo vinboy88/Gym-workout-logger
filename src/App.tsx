@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { HistoryScreen } from './HistoryScreen';
 import { LogScreen } from './LogScreen';
 import { ProgramScreen } from './ProgramScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { useGym } from './store';
 
-type Tab = 'log' | 'program' | 'settings';
+type Tab = 'log' | 'history' | 'program' | 'settings';
 
 export function App() {
   const { ready, error, state } = useGym();
@@ -48,6 +49,7 @@ function LoadedApp() {
 
       <main className="main">
         {tab === 'log' && <LogScreen onNeedProgram={() => setTab('program')} />}
+        {tab === 'history' && <HistoryScreen />}
         {tab === 'program' && <ProgramScreen />}
         {tab === 'settings' && <SettingsScreen />}
       </main>
@@ -59,6 +61,13 @@ function LoadedApp() {
           onClick={() => setTab('log')}
         >
           Log
+        </button>
+        <button
+          type="button"
+          className={tab === 'history' ? 'tab on' : 'tab'}
+          onClick={() => setTab('history')}
+        >
+          History
         </button>
         <button
           type="button"

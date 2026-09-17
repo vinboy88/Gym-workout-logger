@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react';
+import { formatDateKey, todayLocalDateKey } from './dates';
 import { formatSet } from './ids';
 import { exercisesFor, sortedCategories, useGym } from './store';
 import type { ProgramExercise, SetEntry } from './types';
@@ -116,8 +117,10 @@ function ExerciseCard({
 }
 
 export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
-  const { state, openSession, startSession, endSession, logSet, removeSet } = useGym();
+  const { state, openSession, startSession, setSessionDate, endSession, logSet, removeSet } =
+    useGym();
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [draftDate, setDraftDate] = useState(todayLocalDateKey);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const categories = state ? sortedCategories(state) : [];
@@ -135,13 +138,38 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
   if (!state) return null;
 
   const locked = state.program.locked;
+  const selectedDate = openSession?.date ?? draftDate;
+
+  async function onDateChange(next: string) {
+    if (!next) return;
+    setActionError(null);
+    if (openSession) {
+      try {
+        await setSessionDate(next);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'Could not change date');
+      }
+    } else {
+      setDraftDate(next);
+    }
+  }
 
   async function onStart() {
     setActionError(null);
     try {
-      await startSession();
+      await startSession(selectedDate);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'Could not start');
+    }
+  }
+
+  async function onEnd() {
+    setActionError(null);
+    try {
+      await endSession();
+      setDraftDate(todayLocalDateKey());
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not end');
     }
   }
 
@@ -149,11 +177,11 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
     <section className="screen">
       <header className="screen-head">
         <div>
-          <p className="eyebrow">Today</p>
+          <p className="eyebrow">{formatDateKey(selectedDate)}</p>
           <h2>Log</h2>
         </div>
         {locked && openSession ? (
-          <button className="btn ghost" type="button" onClick={() => void endSession()}>
+          <button className="btn ghost" type="button" onClick={() => void onEnd()}>
             End
           </button>
         ) : locked ? (
@@ -173,8 +201,21 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
       )}
 
       {locked && (
+        <label className="date-field">
+          <span>Workout date</span>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(event) => void onDateChange(event.target.value)}
+          />
+        </label>
+      )}
+
+      {locked && (
         <p className="session-line">
-          {openSession ? 'Workout open — first set also starts one.' : 'Log a set to start a workout.'}
+          {openSession
+            ? `Workout open for ${formatDateKey(openSession.date)}.`
+            : `Log a set to start a workout on ${formatDateKey(selectedDate)}.`}
         </p>
       )}
 
@@ -202,7 +243,7 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
             exercise={exercise}
             sessionSets={sessionSets}
             locked={locked}
-            onLog={(weight, reps) => logSet(exercise.id, weight, reps)}
+            onLog={(weight, reps) => logSet(exercise.id, weight, reps, selectedDate)}
             onRemoveSet={removeSet}
           />
         ))}

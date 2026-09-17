@@ -22,6 +22,8 @@ export type ProgramExercise = {
 export type Session = {
   id: string;
   programId: string;
+  /** Local calendar day (YYYY-MM-DD) the workout belongs to. */
+  date: string;
   startedAt: string;
   endedAt?: string;
 };

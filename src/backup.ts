@@ -1,5 +1,6 @@
-import type { BackupPayload, GymState } from './types';
+import { isDateKey, toLocalDateKey } from './dates';
 import { nowIso } from './ids';
+import type { BackupPayload, GymState } from './types';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -83,10 +84,12 @@ export function parseBackup(raw: unknown): GymState {
       item.endedAt === undefined || item.endedAt === null
         ? undefined
         : reqString(item.endedAt, 'session.endedAt');
+    const startedAt = reqString(item.startedAt, 'session.startedAt');
     return {
       id: reqString(item.id, 'session.id'),
       programId: reqString(item.programId, 'session.programId'),
-      startedAt: reqString(item.startedAt, 'session.startedAt'),
+      date: isDateKey(item.date) ? item.date : toLocalDateKey(startedAt),
+      startedAt,
       ...(endedAt ? { endedAt } : {}),
     };
   });
