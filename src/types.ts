@@ -40,6 +40,13 @@ export type SetEntry = {
   createdAt: string;
 };
 
+/** Per-exercise cue on a workout day, keyed by session + program exercise. */
+export type ExerciseNote = {
+  sessionId: string;
+  programExerciseId: string;
+  text: string;
+};
+
 export type HeaviestSet = {
   weight: number;
   reps: number;
@@ -68,6 +75,7 @@ export type BackupPayload = {
   programExercises: ProgramExercise[];
   sessions: Session[];
   setEntries: SetEntry[];
+  exerciseNotes: ExerciseNote[];
   prefs: BackupPrefs;
 };
 
@@ -77,5 +85,6 @@ export type GymState = {
   programExercises: ProgramExercise[];
   sessions: Session[];
   setEntries: SetEntry[];
+  exerciseNotes: ExerciseNote[];
   prefs: BackupPrefs;
 };

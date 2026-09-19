@@ -1,5 +1,6 @@
 import { loggedSessionCount, normalizeBackupPrefs } from './backupPrefs';
 import { withCalendarDate } from './dates';
+import { normalizeExerciseNotes } from './exerciseNotes';
 import { seedGymState } from './seed';
 import type { BackupPrefs, GymState, ProgramExercise, Session } from './types';
 
@@ -8,9 +9,10 @@ const DB_NAME = 'gym-workout-logger';
 const DB_VERSION = 1;
 const STATE_KEY = 'state';
 
-type StoredState = Omit<GymState, 'sessions' | 'prefs'> & {
+type StoredState = Omit<GymState, 'sessions' | 'prefs' | 'exerciseNotes'> & {
   sessions: Array<Session & { date?: string }>;
   prefs?: BackupPrefs | unknown;
+  exerciseNotes?: unknown;
 };
 
 export function migrateState(stored: StoredState): { state: GymState; changed: boolean } {
@@ -24,6 +26,8 @@ export function migrateState(stored: StoredState): { state: GymState; changed: b
   const programExercises = Array.isArray(stored.programExercises)
     ? stored.programExercises
     : [];
+  const exerciseNotes = normalizeExerciseNotes(stored.exerciseNotes);
+  if (!Array.isArray(stored.exerciseNotes)) changed = true;
   const sessionCount = loggedSessionCount(setEntries);
   const prefs = normalizeBackupPrefs(stored.prefs, sessionCount);
   if (JSON.stringify(stored.prefs ?? null) !== JSON.stringify(prefs)) changed = true;
@@ -35,6 +39,7 @@ export function migrateState(stored: StoredState): { state: GymState; changed: b
       programExercises: programExercises as ProgramExercise[],
       sessions,
       setEntries,
+      exerciseNotes,
       prefs,
     },
     changed,

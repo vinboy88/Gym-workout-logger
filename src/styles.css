@@ -38,7 +38,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
   color: inherit;
 }
@@ -265,6 +266,36 @@ h3 {
 
 .last-glance {
   margin-top: 0;
+}
+
+.exercise-note {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  background: #101216;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  resize: none;
+  outline: none;
+}
+
+.exercise-note:focus {
+  border-color: var(--lime-dim);
+}
+
+.exercise-note:disabled {
+  opacity: 0.55;
+}
+
+.exercise-note-text {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+  white-space: pre-wrap;
 }
 
 .toggle-row {

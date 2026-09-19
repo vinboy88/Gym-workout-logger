@@ -9,7 +9,7 @@ import {
 } from './backupPrefs';
 import { migrateState } from './db';
 import { lastSessionTopSet } from './lastSession';
-import type { GymState, Session, SetEntry } from './types';
+import type { ExerciseNote, GymState, Session, SetEntry } from './types';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -130,6 +130,13 @@ assert(migrated.changed, 'migrate adds prefs in place');
 assert(migrated.state.prefs.remindEnabled, 'prefs default on');
 assert(migrated.state.sessions[0].date === '2026-09-01', 'dates intact');
 assert(migrated.state.setEntries[0].weight === 100, 'sets intact');
+assert(migrated.state.exerciseNotes.length === 0, 'missing notes migrate to empty');
+
+const note: ExerciseNote = {
+  sessionId: sessionOld.id,
+  programExerciseId: exA,
+  text: 'slow eccentric, left knee',
+};
 
 const state: GymState = {
   ...migrated.state,
@@ -137,18 +144,29 @@ const state: GymState = {
     { ...migrated.state.programExercises[0], retired: true },
     { id: 'ex-new', categoryId: 'c1', name: 'Dumbbell press', sortOrder: 0 },
   ],
+  exerciseNotes: [note],
   prefs: exported,
 };
 const roundTrip = parseBackup(serializeBackup(state));
 assert(roundTrip.prefs.lastExportedAt === exported.lastExportedAt, 'prefs round-trip');
 assert(roundTrip.programExercises.some((ex) => ex.retired && ex.name === 'Bench press'), 'retired round-trip');
 assert(roundTrip.programExercises.some((ex) => ex.id === 'ex-new'), 'swap slot round-trip');
+assert(roundTrip.exerciseNotes[0]?.text === note.text, 'notes round-trip');
+assert(roundTrip.exerciseNotes[0]?.sessionId === note.sessionId, 'note stays on session');
+assert(roundTrip.exerciseNotes[0]?.programExerciseId === note.programExerciseId, 'note stays on exercise');
 
 const oldBackup = serializeBackup(state) as unknown as Record<string, unknown>;
 delete oldBackup.prefs;
 const fromOld = parseBackup(oldBackup);
 assert(fromOld.prefs.remindEnabled, 'old backup gets default prefs');
 assert(fromOld.setEntries.length === 1, 'old backup keeps sets');
+assert(fromOld.exerciseNotes[0]?.text === note.text, 'notes survive prefs-less backup');
+
+const noNotesBackup = serializeBackup(state) as unknown as Record<string, unknown>;
+delete noNotesBackup.exerciseNotes;
+const fromNoNotes = parseBackup(noNotesBackup);
+assert(fromNoNotes.exerciseNotes.length === 0, 'old backup without notes still loads');
+assert(fromNoNotes.setEntries.length === 1, 'sets intact without notes field');
 
 assert(normalizeBackupPrefs(undefined, 3).sessionCountAtReset === 3, 'missing prefs uses current session count');
 

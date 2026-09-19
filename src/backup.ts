@@ -1,5 +1,6 @@
 import { loggedSessionCount, normalizeBackupPrefs } from './backupPrefs';
 import { isDateKey, toLocalDateKey } from './dates';
+import { normalizeExerciseNotes } from './exerciseNotes';
 import { nowIso } from './ids';
 import type { BackupPayload, GymState } from './types';
 
@@ -37,6 +38,7 @@ export function serializeBackup(state: GymState): BackupPayload {
     programExercises: state.programExercises,
     sessions: state.sessions,
     setEntries: state.setEntries,
+    exerciseNotes: state.exerciseNotes ?? [],
     prefs: state.prefs,
   };
 }
@@ -110,12 +112,14 @@ export function parseBackup(raw: unknown): GymState {
     };
   });
 
+  const exerciseNotes = normalizeExerciseNotes(raw.exerciseNotes);
+
   const prefs = normalizeBackupPrefs(
     raw.prefs,
     loggedSessionCount(setEntries),
   );
 
-  return { program, categories, programExercises, sessions, setEntries, prefs };
+  return { program, categories, programExercises, sessions, setEntries, exerciseNotes, prefs };
 }
 
 export function backupFilename(date = new Date()): string {

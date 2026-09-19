@@ -61,6 +61,7 @@ export function seedGymState(): GymState {
     programExercises: [...leg.exercises, ...upper.exercises, ...push.exercises],
     sessions: [],
     setEntries: [],
+    exerciseNotes: [],
     prefs: defaultBackupPrefs(0),
   };
 }

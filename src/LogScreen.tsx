@@ -1,5 +1,6 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { formatDateKey, formatDateKeyCompact, isDateKey, todayLocalDateKey } from './dates';
+import { noteText } from './exerciseNotes';
 import { formatSet } from './ids';
 import { lastSessionTopSet } from './lastSession';
 import { exercisesFor, sortedCategories, useGym } from './store';
@@ -21,24 +22,48 @@ function ExerciseCard({
   exercise,
   sessionSets,
   last,
+  note,
   locked,
   onLog,
   onRemoveSet,
+  onSaveNote,
 }: {
   exercise: ProgramExercise;
   sessionSets: SetEntry[];
   last: LastSessionGlance | null;
+  note: string;
   locked: boolean;
   onLog: (weight: number, reps: number) => Promise<void>;
   onRemoveSet: (id: string) => Promise<void>;
+  onSaveNote: (text: string) => Promise<void>;
 }) {
   const { heaviest } = useGym();
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
+  const [draftNote, setDraftNote] = useState(note);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const focusedNote = useRef(false);
+  const draftNoteRef = useRef(draftNote);
+  const savedNoteRef = useRef(note);
+  const saveNoteRef = useRef(onSaveNote);
+  draftNoteRef.current = draftNote;
+  savedNoteRef.current = note;
+  saveNoteRef.current = onSaveNote;
   const best = heaviest.get(exercise.id);
   const sets = sessionSets.filter((set) => set.programExerciseId === exercise.id);
+
+  useEffect(() => {
+    if (!focusedNote.current) setDraftNote(note);
+  }, [note]);
+
+  useEffect(() => {
+    return () => {
+      const next = draftNoteRef.current;
+      if (next.trim() === savedNoteRef.current.trim()) return;
+      void saveNoteRef.current(next);
+    };
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -77,6 +102,25 @@ function ExerciseCard({
           </p>
         )}
       </div>
+      <textarea
+        className="exercise-note"
+        rows={2}
+        value={draftNote}
+        placeholder="notes"
+        aria-label={`${exercise.name} notes`}
+        disabled={!locked || busy}
+        onFocus={() => {
+          focusedNote.current = true;
+        }}
+        onChange={(event) => setDraftNote(event.target.value)}
+        onBlur={() => {
+          focusedNote.current = false;
+          if (draftNote.trim() === note.trim()) return;
+          void onSaveNote(draftNote).catch((err: unknown) => {
+            setError(err instanceof Error ? err.message : 'Could not save note');
+          });
+        }}
+      />
       {sets.length > 0 && (
         <ol className="set-pills">
           {sets.map((set, index) => (
@@ -125,8 +169,16 @@ function ExerciseCard({
 }
 
 export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
-  const { state, openSession, startSession, setSessionDate, endSession, logSet, removeSet } =
-    useGym();
+  const {
+    state,
+    openSession,
+    startSession,
+    setSessionDate,
+    endSession,
+    logSet,
+    removeSet,
+    setExerciseNote,
+  } = useGym();
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [draftDate, setDraftDate] = useState(todayLocalDateKey);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -266,9 +318,11 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
             exercise={exercise}
             sessionSets={sessionSets}
             last={lastByExercise.get(exercise.id) ?? null}
+            note={noteText(state.exerciseNotes, openSession?.id, exercise.id)}
             locked={locked}
             onLog={(weight, reps) => logSet(exercise.id, weight, reps, selectedDate)}
             onRemoveSet={removeSet}
+            onSaveNote={(text) => setExerciseNote(exercise.id, text, selectedDate)}
           />
         ))}
         {exercises.length === 0 && <p className="muted">No exercises on this day.</p>}
