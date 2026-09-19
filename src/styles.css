@@ -298,6 +298,62 @@ h3 {
   white-space: pre-wrap;
 }
 
+.rest-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  min-height: 28px;
+}
+
+.rest-time {
+  min-width: 2.6em;
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.rest-time.done {
+  color: var(--lime);
+}
+
+.rest-presets {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.rest-preset {
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 999px;
+  padding: 3px 7px;
+  min-height: 26px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.rest-preset.on {
+  background: var(--lime);
+  color: #111;
+  border-color: var(--lime);
+  font-weight: 700;
+}
+
+.rest-dismiss {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 8px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+}
+
 .toggle-row {
   display: flex;
   align-items: center;

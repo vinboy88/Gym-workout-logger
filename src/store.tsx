@@ -19,6 +19,7 @@ import { loadState, saveState } from './db';
 import { upsertExerciseNote } from './exerciseNotes';
 import { heaviestMap } from './heaviest';
 import { createId, nowIso } from './ids';
+import { normalizeRestSeconds } from './restTimer';
 import type {
   BackupPrefs,
   Category,
@@ -57,7 +58,9 @@ type GymStore = {
   backupDue: boolean;
   dismissBackupNudge: () => Promise<void>;
   setBackupPrefs: (
-    patch: Partial<Pick<BackupPrefs, 'remindEnabled' | 'everyDays' | 'afterSessions'>>,
+    patch: Partial<
+      Pick<BackupPrefs, 'remindEnabled' | 'everyDays' | 'afterSessions' | 'restSeconds'>
+    >,
   ) => Promise<void>;
   swapExercise: (id: string, name: string) => Promise<void>;
 };
@@ -533,7 +536,9 @@ export function GymProvider({ children }: { children: ReactNode }) {
 
   const setBackupPrefs = useCallback(
     async (
-      patch: Partial<Pick<BackupPrefs, 'remindEnabled' | 'everyDays' | 'afterSessions'>>,
+      patch: Partial<
+        Pick<BackupPrefs, 'remindEnabled' | 'everyDays' | 'afterSessions' | 'restSeconds'>
+      >,
     ) => {
       await update((current) => ({
         ...current,
@@ -545,6 +550,9 @@ export function GymProvider({ children }: { children: ReactNode }) {
             : {}),
           ...(patch.afterSessions !== undefined
             ? { afterSessions: Math.min(99, Math.max(0, Math.floor(patch.afterSessions))) }
+            : {}),
+          ...(patch.restSeconds !== undefined
+            ? { restSeconds: normalizeRestSeconds(patch.restSeconds) }
             : {}),
         },
       }));
