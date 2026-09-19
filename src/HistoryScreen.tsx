@@ -1,19 +1,22 @@
 import { useMemo, useState } from 'react';
 import { formatDateKey, formatDateKeyLong } from './dates';
+import { noteText } from './exerciseNotes';
 import { formatSet } from './ids';
 import { useGym } from './store';
-import type { ProgramExercise, Session, SetEntry } from './types';
+import type { ExerciseNote, ProgramExercise, Session, SetEntry } from './types';
 
 type GroupedLift = {
   id: string;
   name: string;
   sets: SetEntry[];
+  note: string;
 };
 
 function groupSessionLifts(
   session: Session,
   setEntries: SetEntry[],
   exercises: ProgramExercise[],
+  notes: ExerciseNote[],
 ): GroupedLift[] {
   const nameById = new Map(exercises.map((exercise) => [exercise.id, exercise.name]));
   const grouped = new Map<string, SetEntry[]>();
@@ -28,10 +31,17 @@ function groupSessionLifts(
     }
     grouped.get(set.programExerciseId)?.push(set);
   }
+  for (const note of notes) {
+    if (note.sessionId !== session.id) continue;
+    if (grouped.has(note.programExerciseId)) continue;
+    grouped.set(note.programExerciseId, []);
+    order.push(note.programExerciseId);
+  }
   return order.map((id) => ({
     id,
     name: nameById.get(id) ?? 'Removed exercise',
     sets: grouped.get(id) ?? [],
+    note: noteText(notes, session.id, id),
   }));
 }
 
@@ -61,7 +71,7 @@ export function HistoryScreen() {
 
   const selected = sessions.find((session) => session.id === sessionId) ?? null;
   const lifts = state && selected
-    ? groupSessionLifts(selected, state.setEntries, state.programExercises)
+    ? groupSessionLifts(selected, state.setEntries, state.programExercises, state.exerciseNotes)
     : [];
 
   if (!state) return null;
@@ -90,13 +100,16 @@ export function HistoryScreen() {
               <div className="exercise-head">
                 <h3>{lift.name}</h3>
               </div>
-              <ol className="set-pills">
-                {lift.sets.map((set) => (
-                  <li key={set.id}>
-                    <span className="pill">{formatSet(set.weight, set.reps)}</span>
-                  </li>
-                ))}
-              </ol>
+              {lift.note ? <p className="exercise-note-text">{lift.note}</p> : null}
+              {lift.sets.length > 0 && (
+                <ol className="set-pills">
+                  {lift.sets.map((set) => (
+                    <li key={set.id}>
+                      <span className="pill">{formatSet(set.weight, set.reps)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </article>
           ))}
           {lifts.length === 0 && <p className="muted">No sets logged this day.</p>}
@@ -118,7 +131,12 @@ export function HistoryScreen() {
       ) : (
         <div className="stack">
           {sessions.map((session) => {
-            const grouped = groupSessionLifts(session, state.setEntries, state.programExercises);
+            const grouped = groupSessionLifts(
+              session,
+              state.setEntries,
+              state.programExercises,
+              state.exerciseNotes,
+            );
             return (
               <button
                 key={session.id}

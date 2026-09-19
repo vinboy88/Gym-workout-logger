@@ -16,6 +16,7 @@ import {
 } from './backupPrefs';
 import { isDateKey, todayLocalDateKey } from './dates';
 import { loadState, saveState } from './db';
+import { upsertExerciseNote } from './exerciseNotes';
 import { heaviestMap } from './heaviest';
 import { createId, nowIso } from './ids';
 import type {
@@ -49,6 +50,7 @@ type GymStore = {
   setSessionDate: (date: string) => Promise<void>;
   endSession: () => Promise<void>;
   logSet: (programExerciseId: string, weight: number, reps: number, date?: string) => Promise<void>;
+  setExerciseNote: (programExerciseId: string, text: string, date?: string) => Promise<void>;
   removeSet: (id: string) => Promise<void>;
   exportBackup: () => Promise<string>;
   importBackup: (raw: unknown) => Promise<void>;
@@ -105,8 +107,12 @@ export function GymProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persist = useCallback(async (next: GymState) => {
-    setState(next);
-    await saveState(next);
+    const normalized: GymState = {
+      ...next,
+      exerciseNotes: next.exerciseNotes ?? [],
+    };
+    setState(normalized);
+    await saveState(normalized);
   }, []);
 
   const update = useCallback(
@@ -463,6 +469,42 @@ export function GymProvider({ children }: { children: ReactNode }) {
     [update],
   );
 
+  const setExerciseNote = useCallback(
+    async (programExerciseId: string, text: string, date?: string) => {
+      const current = state;
+      if (!current) throw new Error('Not ready');
+      if (!current.program.locked) {
+        throw new Error('Lock the program before logging');
+      }
+      const trimmed = text.trim();
+      let session = [...current.sessions]
+        .reverse()
+        .find((item) => item.programId === current.program.id && !item.endedAt);
+      if (!session && !trimmed) return;
+      const sessions = [...current.sessions];
+      if (!session) {
+        session = {
+          id: createId(),
+          programId: current.program.id,
+          date: isDateKey(date) ? date : todayLocalDateKey(),
+          startedAt: nowIso(),
+        };
+        sessions.push(session);
+      }
+      await persist({
+        ...current,
+        sessions,
+        exerciseNotes: upsertExerciseNote(
+          current.exerciseNotes ?? [],
+          session.id,
+          programExerciseId,
+          trimmed,
+        ),
+      });
+    },
+    [persist, state],
+  );
+
   const exportBackup = useCallback(async () => {
     const current = state;
     if (!current) throw new Error('Not ready');
@@ -532,6 +574,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
       setSessionDate,
       endSession,
       logSet,
+      setExerciseNote,
       removeSet,
       exportBackup,
       importBackup,
@@ -561,6 +604,7 @@ export function GymProvider({ children }: { children: ReactNode }) {
       renameCategory,
       renameExercise,
       setBackupPrefs,
+      setExerciseNote,
       setSessionDate,
       setTitle,
       startSession,
