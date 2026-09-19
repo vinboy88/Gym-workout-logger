@@ -65,6 +65,8 @@ export type BackupPrefs = {
   lastExportedAt: string | null;
   lastResetAt: string;
   sessionCountAtReset: number;
+  /** Preferred rest countdown after logging a set (45 / 60 / 90). */
+  restSeconds: number;
 };
 
 export type BackupPayload = {

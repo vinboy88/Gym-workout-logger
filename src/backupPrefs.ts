@@ -1,5 +1,6 @@
 import { toLocalDateKey } from './dates';
 import { nowIso } from './ids';
+import { DEFAULT_REST_SECONDS, normalizeRestSeconds } from './restTimer';
 import type { BackupPrefs, SetEntry } from './types';
 
 export const DEFAULT_EVERY_DAYS = 7;
@@ -29,6 +30,7 @@ export function defaultBackupPrefs(
     lastExportedAt: null,
     lastResetAt: now.toISOString(),
     sessionCountAtReset: sessionCount,
+    restSeconds: DEFAULT_REST_SECONDS,
   };
 }
 
@@ -47,6 +49,7 @@ export function normalizeBackupPrefs(
     lastExportedAt: typeof raw.lastExportedAt === 'string' ? raw.lastExportedAt : null,
     lastResetAt: typeof raw.lastResetAt === 'string' ? raw.lastResetAt : defaults.lastResetAt,
     sessionCountAtReset: clampInt(raw.sessionCountAtReset, sessionCount, 1_000_000),
+    restSeconds: normalizeRestSeconds(raw.restSeconds),
   };
 }
 

@@ -3,6 +3,13 @@ import { formatDateKey, formatDateKeyCompact, isDateKey, todayLocalDateKey } fro
 import { noteText } from './exerciseNotes';
 import { formatSet } from './ids';
 import { lastSessionTopSet } from './lastSession';
+import {
+  DEFAULT_REST_SECONDS,
+  formatRestClock,
+  REST_PRESETS,
+  restSecondsLeft,
+  type RestPreset,
+} from './restTimer';
 import { exercisesFor, sortedCategories, useGym } from './store';
 import type { LastSessionGlance, ProgramExercise, SetEntry } from './types';
 
@@ -24,18 +31,22 @@ function ExerciseCard({
   last,
   note,
   locked,
+  restSeconds,
   onLog,
   onRemoveSet,
   onSaveNote,
+  onSetRestSeconds,
 }: {
   exercise: ProgramExercise;
   sessionSets: SetEntry[];
   last: LastSessionGlance | null;
   note: string;
   locked: boolean;
+  restSeconds: number;
   onLog: (weight: number, reps: number) => Promise<void>;
   onRemoveSet: (id: string) => Promise<void>;
   onSaveNote: (text: string) => Promise<void>;
+  onSetRestSeconds: (seconds: RestPreset) => Promise<void>;
 }) {
   const { heaviest } = useGym();
   const [weight, setWeight] = useState('');
@@ -43,6 +54,8 @@ function ExerciseCard({
   const [draftNote, setDraftNote] = useState(note);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [restEndsAt, setRestEndsAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const focusedNote = useRef(false);
   const draftNoteRef = useRef(draftNote);
   const savedNoteRef = useRef(note);
@@ -65,6 +78,21 @@ function ExerciseCard({
     };
   }, []);
 
+  useEffect(() => {
+    if (restEndsAt === null) return;
+    const id = window.setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= restEndsAt) window.clearInterval(id);
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [restEndsAt]);
+
+  function startRest(seconds = restSeconds) {
+    setNow(Date.now());
+    setRestEndsAt(Date.now() + seconds * 1000);
+  }
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     const w = parseWeight(weight);
@@ -82,6 +110,7 @@ function ExerciseCard({
     try {
       await onLog(w, r);
       setReps('');
+      startRest();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not log');
     } finally {
@@ -163,6 +192,41 @@ function ExerciseCard({
           Log
         </button>
       </form>
+      {restEndsAt !== null && (
+        <div className="rest-bar" role="timer" aria-label={`${exercise.name} rest`}>
+          <span
+            className={
+              restSecondsLeft(restEndsAt, now) === 0 ? 'rest-time done' : 'rest-time'
+            }
+            aria-live="polite"
+          >
+            {formatRestClock(restSecondsLeft(restEndsAt, now))}
+          </span>
+          <div className="rest-presets">
+            {REST_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className={preset === restSeconds ? 'rest-preset on' : 'rest-preset'}
+                onClick={() => {
+                  startRest(preset);
+                  void onSetRestSeconds(preset);
+                }}
+              >
+                {preset}s
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="rest-dismiss"
+            aria-label="Dismiss rest timer"
+            onClick={() => setRestEndsAt(null)}
+          >
+            ×
+          </button>
+        </div>
+      )}
       {error && <p className="form-error">{error}</p>}
     </article>
   );
@@ -178,6 +242,7 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
     logSet,
     removeSet,
     setExerciseNote,
+    setBackupPrefs,
   } = useGym();
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [draftDate, setDraftDate] = useState(todayLocalDateKey);
@@ -320,9 +385,11 @@ export function LogScreen({ onNeedProgram }: { onNeedProgram: () => void }) {
             last={lastByExercise.get(exercise.id) ?? null}
             note={noteText(state.exerciseNotes, openSession?.id, exercise.id)}
             locked={locked}
+            restSeconds={state.prefs.restSeconds ?? DEFAULT_REST_SECONDS}
             onLog={(weight, reps) => logSet(exercise.id, weight, reps, selectedDate)}
             onRemoveSet={removeSet}
             onSaveNote={(text) => setExerciseNote(exercise.id, text, selectedDate)}
+            onSetRestSeconds={(seconds) => setBackupPrefs({ restSeconds: seconds })}
           />
         ))}
         {exercises.length === 0 && <p className="muted">No exercises on this day.</p>}
