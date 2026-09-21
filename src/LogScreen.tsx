@@ -6,6 +6,7 @@ import { lastSessionTopSet } from './lastSession';
 import {
   DEFAULT_REST_SECONDS,
   formatRestClock,
+  formatRestPresetLabel,
   REST_PRESETS,
   restSecondsLeft,
   type RestPreset,
@@ -213,7 +214,7 @@ function ExerciseCard({
                   void onSetRestSeconds(preset);
                 }}
               >
-                {preset}s
+                {formatRestPresetLabel(preset)}
               </button>
             ))}
           </div>

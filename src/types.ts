@@ -65,7 +65,7 @@ export type BackupPrefs = {
   lastExportedAt: string | null;
   lastResetAt: string;
   sessionCountAtReset: number;
-  /** Preferred rest countdown after logging a set (45 / 60 / 90). */
+  /** Preferred rest countdown after logging a set (120 / 180 / 300). */
   restSeconds: number;
 };
 
